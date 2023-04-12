@@ -48,11 +48,6 @@ def train():
         train_loader, valid_loader = utils.get_tinyimagenet_jigsaw(dataset_path, batch_size, size=224)
 
     print(args.net)
-    if 'vit_tiny_patch16_224' == args.net:
-        model = timm.create_model(args.net, pretrained=True, num_classes=num_classes)
-    if 'vit_small_patch32_384' ==args.net:
-        model = timm.create_model(args.net, pretrained=True, num_classes=num_classes)
-    # if 'vit_base_patch16_384' == args.net:
     model = timm.create_model(args.net, pretrained=True, num_classes=num_classes)
 
     model.to(device)
