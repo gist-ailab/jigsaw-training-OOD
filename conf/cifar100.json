@@ -1,0 +1,7 @@
+{
+    "epoch" : "100",
+    "id_dataset" : "/SSDe/yyg/data/cifar100",
+    "batch_size" : 128,
+    "save_path" : "/SSDe/yyg/OEJI/Cifar100/",
+    "num_classes" : 100
+}
