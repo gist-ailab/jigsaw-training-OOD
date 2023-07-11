@@ -1,5 +1,5 @@
 # Jigsaw training for improving OOD
-Official Implementation of the **"Exploring the Use of Jigsaw Puzzles in Out-of-Distribution Detection (Submitted to Pattern Recognition Letters)"** by Yeonguk Yu, Sungho Shin, Minhwan Ko, and Kyoobin Lee. 
+Official Implementation of the **"Exploring the Use of Jigsaw Puzzles in Out-of-Distribution Detection (Submitted to Computer Vision and Image Understanding)"** by Yeonguk Yu, Sungho Shin, Minhwan Ko, and Kyoobin Lee. 
 
 In this study, we e introduce a novel training method to improve the OOD detection performance with jigsaw puzzles, where the model is trained to produce low logit norm for given jigsaw puzzles. We conduct comprehensive experiments and show that our method consistently improves the OOD detection performance of the model and outperforms previous baselines.
 
