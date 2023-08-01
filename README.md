@@ -8,9 +8,7 @@ In this study, we e introduce a novel training method to improve the OOD detecti
 
 ---
 # Updates & TODO Lists
-- [ ] pretrained checkpoints
 - [x] Environment settings and Train & Evaluation Readme
-- [ ] Presentation video
 
 # Getting Started
 ## Environment Setup
