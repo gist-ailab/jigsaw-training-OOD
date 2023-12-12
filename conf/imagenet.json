@@ -1,0 +1,7 @@
+{
+    "epoch" : "100",
+    "id_dataset" : "/home/lba-com/Workspace/CTTA/classification/data/imagenet2012/",
+    "batch_size" : 128,
+    "save_path" : "./imagenet/",
+    "num_classes" : 1000
+}

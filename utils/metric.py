@@ -197,7 +197,7 @@ def show_performance(pos, neg, method_name='Ours', recall_level=recall_level_def
         file.write('AUROC:\t\t\t{:.2f}\n'.format(100 * auroc))
         file.write('AUPR:\t\t\t{:.2f}\n'.format(100 * aupr))
         file.write('\n')
-
+    return fpr, auroc
 
 def print_measures(auroc, aupr, fpr, method_name='Ours', recall_level=recall_level_default):
     print('\t\t\t\t' + method_name)

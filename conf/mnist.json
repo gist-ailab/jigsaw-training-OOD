@@ -1,0 +1,7 @@
+{
+    "epoch" : "100",
+    "id_dataset" : "./mnist",
+    "batch_size" : 128,
+    "save_path" : "./MNIST/",
+    "num_classes" : 10
+}

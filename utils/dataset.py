@@ -31,16 +31,15 @@ corrupt_name = ['gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur',
                      'contrast', 'elastic_transform', 'brightness',
                     'speckle_noise', 'gaussian_blur', 'saturate', 'frost']
 
-from imagecorruptions import corrupt
-
 
 class jigsaw_train_dataset(data.Dataset):
-    def __init__(self, dataset, transform, is_tinyimagenet = True):
+    def __init__(self, dataset, transform, jigsaw_num = 3, data_name = 'imagenet'):
         self.dataset = dataset
         self.transform = transform
-
-        self.is_imagenet = is_tinyimagenet
-        if self.is_imagenet:
+        self.jigsaw_num = jigsaw_num
+        self.data_name = data_name
+        if self.data_name == 'imagenet':
+            # self.open = Image.open
             self.open = Image.open
         else:
             self.open = Image.fromarray
@@ -53,16 +52,23 @@ class jigsaw_train_dataset(data.Dataset):
         x, y = self.dataset[index]    
 
         # img = self.dataset.data[index]
-        if self.is_imagenet:
-            img_ = self.dataset.image_paths[index]
+        if self.data_name=='mnist':
+            # img_ = self.dataset.image_paths[index]
+            img_ = self.dataset.data[index]
+            img_ = self.open(img_.numpy())            
+        elif self.data_name == 'imagenet':
+            img_ = self.dataset.samples[index][0]
+            img_ = self.open(img_)
+            img_ = img_.convert('RGB')
         else:
             img_ = self.dataset.data[index]
-        img_ = self.open(img_)
-        img_ = img_.convert('RGB')
+            img_ = self.open(img_)
+            img_ = img_.convert('RGB')
+
 
         img = self.transform(img_)
         x_ = torch.zeros_like(img)
-        jigsaw_num = 3#np.random.choice([3])
+        jigsaw_num = self.jigsaw_num #np.random.choice([3])
 
         s = int(float(x.size(1)) / jigsaw_num)
 
@@ -77,7 +83,7 @@ class jigsaw_train_dataset(data.Dataset):
             x_[:, i*s:(i+1)*s, j*s:(j+1)*s] = img[:, ti*s:(ti+1)*s, tj*s:(tj+1)*s] 
         return x, x_, y
 
-def get_cifar_jigsaw(dataset, folder, batch_size, size = 224):
+def get_cifar_jigsaw(dataset, folder, batch_size, size = 224, jigsaw_num = 3):
     train_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
     test_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
     if dataset == 'cifar10':
@@ -98,12 +104,112 @@ def get_cifar_jigsaw(dataset, folder, batch_size, size = 224):
         transforms.Normalize(mean, std)
     ])
 
-    jigsaw = jigsaw_train_dataset(train_data, train_transform_cifar, is_tinyimagenet=False)
+    jigsaw = jigsaw_train_dataset(train_data, transform_pre, jigsaw_num, data_name = 'cifar')
 
     train_loader = torch.utils.data.DataLoader(jigsaw, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
     valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
     
     return train_loader, valid_loader
+
+def get_mnist_jigsaw(folder, batch_size, eval=False, size=224, jigsaw_num = 3):
+    train_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Lambda(lambda x: x.repeat(3, 1, 1)), transforms.Normalize(mean, std)])
+    test_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Lambda(lambda x: x.repeat(3, 1, 1)), transforms.Normalize(mean, std)])
+    if eval==True:
+        train_transform_cifar_ = test_transform_cifar
+    else:
+        train_transform_cifar_ = train_transform_cifar
+    train_data = dset.MNIST(folder, train=True, transform=train_transform_cifar, download=True)
+    test_data = dset.MNIST(folder, train=False, transform=train_transform_cifar, download=True)
+
+    jigsaw = jigsaw_train_dataset(train_data, train_transform_cifar, jigsaw_num, is_tinyimagenet=True)
+
+    train_loader = torch.utils.data.DataLoader(jigsaw, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    return train_loader, valid_loader
+
+
+def get_cifar(dataset, folder, batch_size, size = 224):
+    train_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    if dataset == 'cifar10':
+        train_data = dset.CIFAR10(folder, train=True, transform=train_transform_cifar, download=True)
+        test_data = dset.CIFAR10(folder, train=False, transform=test_transform_cifar, download=True)
+    else:
+        train_data = dset.CIFAR100(folder, train=True, transform=train_transform_cifar, download=True)
+        test_data = dset.CIFAR100(folder, train=False, transform=test_transform_cifar, download=True)
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    
+    return train_loader, valid_loader
+
+def get_imagenet_jigsaw(folder, batch_size, size = 224):
+    train_transform = transforms.Compose([transforms.Resize([size,size]), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    train_data = torchvision.datasets.ImageFolder(folder + '/train', train_transform) 
+    test_data = torchvision.datasets.ImageFolder(folder + '/val', test_transform) 
+
+    transform_pre = transforms.Compose([
+        transforms.Resize([size,size]),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+
+    jigsaw = jigsaw_train_dataset(train_data, transform_pre, 3)
+
+    train_loader = torch.utils.data.DataLoader(jigsaw, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    
+    return train_loader, valid_loader
+
+def get_imagenet(folder, batch_size, size = 224):
+    train_transform = transforms.Compose([transforms.Resize([size,size]), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    train_data = torchvision.datasets.ImageFolder(folder + '/train', train_transform) 
+    test_data = torchvision.datasets.ImageFolder(folder + '/val', test_transform) 
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    
+    return train_loader, valid_loader
+
+def get_imagenet_cnc(folder, batch_size, size = 224, plot=False):
+    train_transform = transforms.Compose([transforms.Resize([size,size]), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    transform_pre = transforms.Compose([
+        transforms.Resize([size,size]),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+
+    from cnc import aug_dict
+
+    if plot == True:
+        train_data_corr = torchvision.datasets.ImageFolder(folder, transform_pre) 
+        return torch.utils.data.DataLoader(train_data_corr, 4, shuffle=True, pin_memory=True, num_workers = 4, collate_fn=aug_dict['cnc'])
+
+    # train_data = TinyImageNet(folder, split='train', transform = train_transform, in_memory=False)
+    # train_data_corr = TinyImageNet(folder, split='train', transform = transform_pre, in_memory=False)
+    # test_data = TinyImageNet(folder, split='val', transform = test_transform, in_memory=False)
+    train_data = torchvision.datasets.ImageFolder(folder + '/train', train_transform) 
+    train_data_corr = torchvision.datasets.ImageFolder(folder + '/train', transform_pre) 
+    test_data = torchvision.datasets.ImageFolder(folder + '/val', test_transform) 
+
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    cnc_loader = torch.utils.data.DataLoader(train_data_corr, batch_size, shuffle=True, pin_memory=True, num_workers = 4, collate_fn=aug_dict['cnc'])
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    
+    return train_loader, cnc_loader, valid_loader
 
 def get_cifar_cnc(dataset, folder, batch_size, size=224):
     transform_pre = transforms.Compose([
@@ -280,6 +386,45 @@ def get_tinyimagenet_cnc(folder, batch_size, size = 64, plot=False):
     
     return train_loader, cnc_loader, valid_loader
 
+def get_mnist_cnc(folder, batch_size, size = 64, plot=False):
+    train_transform = transforms.Compose([
+        transforms.RandomCrop(64, padding=10) if size == 64 else transforms.Resize([size, size]),
+        transforms.ToTensor(), 
+        transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
+        transforms.Normalize(mean, std)])
+
+    transform_pre = transforms.Compose([
+        transforms.RandomCrop(64, padding=10) if size == 64 else transforms.Resize([size, size]),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
+        transforms.Normalize(mean, std)
+    ])
+    test_transform = transforms.Compose([
+        transforms.Resize([size, size]), 
+        transforms.ToTensor(), 
+        transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
+        transforms.Normalize(mean, std)])
+
+    from cnc import aug_dict
+
+    if plot == True:
+        train_data_corr = torchvision.datasets.ImageFolder(folder, transform_pre) 
+        return torch.utils.data.DataLoader(train_data_corr, 4, shuffle=True, pin_memory=True, num_workers = 4, collate_fn=aug_dict['cnc'])
+    
+    train_data = dset.MNIST(folder, train=True, transform=train_transform, download=True)
+    train_data_corr = dset.MNIST(folder, train=True, transform=transform_pre, download=True)
+    test_data = dset.MNIST(folder, train=False, transform=test_transform, download=True)
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    cnc_loader = torch.utils.data.DataLoader(train_data_corr, batch_size, shuffle=True, pin_memory=True, num_workers = 4, collate_fn=aug_dict['cnc'])
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    
+    return train_loader, cnc_loader, valid_loader
+
+
 def get_tinyimagenet_jigsaw(folder, batch_size, size = 64, plot=False):
     train_transform = transforms.Compose([
         transforms.RandomCrop(64, padding=10) if size == 64 else transforms.Resize([size, size]),
@@ -335,7 +480,6 @@ def get_cifar_test(dataset, folder, batch_size, test=False):
     
     return train_loader, valid_loader
 
-# test_transforms = test_transform_cifar
 def get_tiny_as_ood(path, batch_size=100, crop = True):
     transform_crop = transforms.Compose([
         transforms.CenterCrop([32,32]),
@@ -380,6 +524,19 @@ def get_cifar(dataset, folder, batch_size, eval=False, size=224):
     
     return train_loader, valid_loader
 
+def get_mnist_train(folder, batch_size, eval=False, size=224):
+    train_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Lambda(lambda x: x.repeat(3, 1, 1)), transforms.Normalize(mean, std)])
+    test_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Lambda(lambda x: x.repeat(3, 1, 1)), transforms.Normalize(mean, std)])
+    if eval==True:
+        train_transform_cifar_ = test_transform_cifar
+    else:
+        train_transform_cifar_ = train_transform_cifar
+    train_data = dset.MNIST(folder, train=True, transform=train_transform_cifar, download=True)
+    test_data = dset.MNIST(folder, train=False, transform=train_transform_cifar, download=True)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=True, pin_memory=True, num_workers = 4)
+    valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)
+    return train_loader, valid_loader
+
 def get_train_svhn(folder, batch_size):
     train_data = dset.SVHN(folder, split='train', transform=test_transform_cifar, download=True)    
     test_data = dset.SVHN(folder, split='test', transform=test_transform_cifar, download=True)
@@ -387,6 +544,9 @@ def get_train_svhn(folder, batch_size):
     train_loader = torch.utils.data.DataLoader(train_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)     
     valid_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False, pin_memory=True, num_workers = 4)    
     return train_loader, valid_loader
+
+
+
     
 def get_outlier(path, batch_size):
     class temp(torch.utils.data.Dataset):
@@ -481,6 +641,8 @@ def get_mnist(path, batch_size=100, transform_imagenet = False):
     ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=batch_size, shuffle=False, pin_memory=True)
     return ood_loader 
 
+test_transform_gray  = transforms.Compose([transforms.Resize([224,224]), transforms.ToTensor(), transforms.Lambda(lambda x: x.repeat(3, 1, 1)), transforms.Normalize(mean, std)])
+
 def get_knist(path):
     ood_data = dset.KMNIST(path, train=False, transform=test_transform_gray, download=True)
     ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=False, pin_memory=True)
@@ -488,6 +650,17 @@ def get_knist(path):
 
 def get_fnist(path):
     ood_data = dset.FashionMNIST(path, train=False, transform=test_transform_gray, download=True)
+    ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=False, pin_memory=True)
+    return ood_loader 
+
+def get_emnist(path):
+    ood_data = dset.EMNIST(path, split='letters', train =False, transform=test_transform_gray, download=True)
+    ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=False, pin_memory=True)
+    return ood_loader 
+
+def get_omniglot(path):
+    ood_data = dset.Omniglot(path, background=True,transform=test_transform_gray, download=True)
+    print(len(ood_data))
     ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=False, pin_memory=True)
     return ood_loader 
 
@@ -507,58 +680,13 @@ def get_folder(path):
     ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=False, pin_memory=False)
     return ood_loader 
 
-def get_blob():
-    # /////////////// Blob ///////////////
-    ood_data = np.float32(np.random.binomial(n=1, p=0.7, size=(10000, 32, 32, 3)))
-    for i in range(10000):
-        ood_data[i] = gblur(ood_data[i], sigma=1.5, channel_axis=False)
-        ood_data[i][ood_data[i] < 0.75] = 0.0
 
-    dummy_targets = torch.ones(10000)
-    ood_data = torch.from_numpy(ood_data.transpose((0, 3, 1, 2))) * 2 - 1
-    ood_data = torch.utils.data.TensorDataset(ood_data, dummy_targets)
-    ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=True, pin_memory=False)
-    return ood_loader
+def get_ood_folder(path, batch_size = 100):
+    size = 224
+    test_transform_cifar = transforms.Compose([transforms.Resize([size,size]), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
-def get_gaussian():
-    dummy_targets = torch.ones(50000)
-    gaussian = np.random.randint(0, 255, [50000, 3, 32, 32], dtype=int)
-    gaussian = gaussian/255.0
-    # print(gaussian)
-    ood_data = torch.from_numpy(np.float32(gaussian))
-    # ood_data = torch.from_numpy(np.float32(np.clip(
-    #     np.ones([50000, 3, 32, 32]), 0, 1))
-    # )
-    ood_data = torch.utils.data.TensorDataset(ood_data, dummy_targets)
-    ood_loader = torch.utils.data.DataLoader(ood_data, batch_size = 128, shuffle=True)
-    return ood_loader
-
-def get_rademacher():
-    dummy_targets = torch.ones(10000)
-    ood_data = torch.from_numpy(np.random.binomial(
-        n=1, p=0.5, size=(10000, 3, 32, 32)).astype(np.float32)) * 2 - 1
-    ood_data = torch.utils.data.TensorDataset(ood_data, dummy_targets)
-    ood_loader = torch.utils.data.DataLoader(ood_data, batch_size=100, shuffle=True)
-    return ood_loader
-
-
-def get_domainnet(path, split, subset, batch_size, eval=False):
-    train_trans = train_transforms
-    test_trans = test_transforms
-    if eval:
-        train_trans = test_transforms
-    trainset = DomainNetClass(path, split, subset, train=True, transform=train_trans)
-    testset = DomainNetClass(path, split, subset, train=False, transform=test_trans)
-
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size, shuffle=True, pin_memory=True, num_workers = 8)
-    valid_loader = torch.utils.data.DataLoader(testset, batch_size, shuffle=False, pin_memory=True, num_workers = 8)
-    return train_loader, valid_loader
-
-def get_ood_folder(path, batch_size = 32, sample_cut = False):
-    oodset = torchvision.datasets.ImageFolder(path, test_transforms)
-    if sample_cut:
-        oodset.samples = oodset.samples[:3000]
-    ood_loader = torch.utils.data.DataLoader(oodset, batch_size, shuffle = True, pin_memory = False, num_workers = 4)
+    oodset = torchvision.datasets.ImageFolder(path, test_transform_cifar)
+    ood_loader = torch.utils.data.DataLoader(oodset, batch_size, shuffle = False, pin_memory = False, num_workers = 4)
     return ood_loader
     
 if __name__ == '__main__':
