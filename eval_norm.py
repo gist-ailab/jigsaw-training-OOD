@@ -55,7 +55,7 @@ def norm_thr(model, train_loader, device):
             # norms.append(outputs.max(1).values)
             sorted_val = torch.sort(outputs, dim=1).values
             # print(sorted_val[0].shape, sorted_val[0])
-            norms.append(sorted_val[:, int(outputs.size(1) * 0.99)-1])
+            norms.append(sorted_val[:, outputs.size(1)-2])
 
     norms = torch.cat(norms, dim=0)
     print(norms.mean())
